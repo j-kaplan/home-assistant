@@ -11,7 +11,7 @@ import voluptuous as vol
 from homeassistant.components.media_player import (
     MEDIA_TYPE_VIDEO, SUPPORT_NEXT_TRACK, SUPPORT_PLAY_MEDIA,
     SUPPORT_PREVIOUS_TRACK, SUPPORT_VOLUME_MUTE, SUPPORT_VOLUME_SET,
-    SUPPORT_SELECT_SOURCE, SUPPORT_PLAY, MediaPlayerDevice, PLATFORM_SCHEMA)
+    SUPPORT_SELECT_SOURCE, SUPPORT_PLAY, MEDIA_TYPE_CHANNEL, MediaPlayerDevice, PLATFORM_SCHEMA)
 from homeassistant.const import (
     CONF_HOST, STATE_IDLE, STATE_PLAYING, STATE_UNKNOWN, STATE_HOME)
 import homeassistant.helpers.config_validation as cv
@@ -85,7 +85,7 @@ class RokuDevice(MediaPlayerDevice):
 
         self.roku = Roku(host)
         self.ip_address = host
-        self.channels = []
+        self.apps = []
         self.current_app = None
         self.device_info = {}
 
@@ -98,7 +98,7 @@ class RokuDevice(MediaPlayerDevice):
         try:
             self.device_info = self.roku.device_info
             self.ip_address = self.roku.host
-            self.channels = self.get_source_list()
+            self.apps = self.get_source_list()
 
             if self.roku.current_app is not None:
                 self.current_app = self.roku.current_app
@@ -193,7 +193,7 @@ class RokuDevice(MediaPlayerDevice):
     @property
     def source_list(self):
         """List of available input sources."""
-        return self.channels
+        return self.apps
 
     def media_play_pause(self):
         """Send play/pause command."""
@@ -225,11 +225,18 @@ class RokuDevice(MediaPlayerDevice):
         if self.current_app is not None:
             self.roku.volume_down()
 
+    def play_media(self, media_type, media_id, **kwargs):
+        if media_type != MEDIA_TYPE_CHANNEL:
+            _LOGGER.error('invalid media type')
+            return
+        self.roku.channel(media_id)
+
+
     def select_source(self, source):
         """Select input source."""
         if self.current_app is not None:
             if source == "Home":
                 self.roku.home()
             else:
-                channel = self.roku[source]
-                channel.launch()
+                app = self.roku[source]
+                app.launch()
